@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📱 ماسح الباركود للموبايل</title>
+    <!-- استدعاء مكتبة قارئ الباركود من المتصفح -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; text-align: center; padding: 20px; color: #1e293b; }
+        .container { max-width: 400px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        input { width: 90%; padding: 12px; margin: 10px 0; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 16px; text-align: center; }
+        button { background-color: #0e7490; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; width: 94%; }
+        button:hover { background-color: #0891b2; }
+        #reader { margin-top: 20px; border-radius: 8px; overflow: hidden; }
+        #status { margin-top: 15px; font-weight: bold; font-size: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🎯 ماسح الباركود الطبي</h2>
+    <p style="font-size: 14px; color: #64748b;">أدخل IP جهاز الكمبيوتر لبدء الربط المباشر</p>
+    
+    <input type="text" id="ipInput" placeholder="مثال: 192.168.1.5" value="192.168.1.5">
+    <button onclick="connectToPC()">🔄 ربط بالكمبيوتر وتشغيل الكاميرا</button>
+    
+    <div id="status" style="color: #64748b;">🔴 غير متصل بالكمبيوتر</div>
+    <div id="reader" style="display: none;"></div>
+</div>
+
+<script>
+    let webSocket;
+    let html5QrcodeScanner;
+
+    function connectToPC() {
+        const ip = document.getElementById('ipInput').value.trim();
+        if (!ip) { alert('الرجاء إدخال الـ IP أولاً'); return; }
+
+        const statusDiv = document.getElementById('status');
+        statusDiv.innerText = "⏳ جاري الاتصال...";
+        statusDiv.style.color = "#d97706";
+
+        // الاتصال بسيرفر الـ C# على الكمبيوتر عبر البورت 8080
+        webSocket = new WebSocket(`ws://${ip}:8080/barcode`);
+
+        webSocket.onopen = function() {
+            statusDiv.innerText = "🟢 تم الاتصال بالكمبيوتر بنجاح!";
+            statusDiv.style.color = "#16a34a";
+            startCamera(); // تشغيل الكاميرا تلقائياً بعد نجاح الاتصال
+        };
+
+        webSocket.onerror = function() {
+            statusDiv.innerText = "❌ فشل الاتصال. تأكد أن البرنامج يعمل على الكمبيوتر وأنك على نفس الـ Wi-Fi";
+            statusDiv.style.color = "#dc2626";
+        };
+
+        webSocket.onclose = function() {
+            statusDiv.innerText = "🔴 انقطع الاتصال بالكمبيوتر";
+            statusDiv.style.color = "#dc2626";
+        };
+    }
+
+    function startCamera() {
+        document.getElementById('reader').style.display = 'block';
+        
+        html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
+            fps: 15, 
+            qrbox: { width: 250, height: 150 },
+            rememberLastUsedCamera: true
+        });
+        
+        html5QrcodeScanner.render(onScanSuccess);
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+        // إرسال الكود المقروء فوراً عبر الـ WebSocket للكمبيوتر
+        if (webSocket && webSocket.readyState === WebSocket.OPEN) {
+            webSocket.send(decodedText);
+            
+            // تنبيه اهتزاز بسيط للمستخدم لتأكيد القراءة بنجاح
+            if (navigator.vibrate) navigator.vibrate(100);
+        } else {
+            alert("عذراً، انقطع الاتصال بالكمبيوتر أثناء القراءة!");
+        }
+    }
+</script>
+
+</body>
+</html>
