@@ -3,85 +3,316 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📱 ماسح الباركود للموبايل</title>
-    <!-- استدعاء مكتبة قارئ الباركود من المتصفح -->
+    <title>📱 نظام ماسح الباركود اللاسلكي</title>
+    <!-- استدعاء مكتبة قارئ الباركود -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; text-align: center; padding: 20px; color: #1e293b; }
-        .container { max-width: 400px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        input { width: 90%; padding: 12px; margin: 10px 0; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 16px; text-align: center; }
-        button { background-color: #0e7490; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; width: 94%; }
-        button:hover { background-color: #0891b2; }
-        #reader { margin-top: 20px; border-radius: 8px; overflow: hidden; }
-        #status { margin-top: 15px; font-weight: bold; font-size: 15px; }
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --primary: #0e7490;
+            --primary-hover: #0891b2;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --success: #16a34a;
+            --error: #dc2626;
+            --warning: #d97706;
+            --border: #e2e8f0;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: var(--bg-color); 
+            margin: 0;
+            padding: 20px 10px;
+            color: var(--text-main); 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 90vh;
+        }
+
+        .container { 
+            width: 100%;
+            max-width: 420px; 
+            background: var(--card-bg); 
+            padding: 30px 20px; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.05); 
+            border: 1px solid var(--border);
+            box-sizing: border-box;
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 22px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .subtitle {
+            font-size: 14px; 
+            color: var(--text-muted);
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: right;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: var(--text-main);
+        }
+
+        input { 
+            width: 100%; 
+            padding: 14px; 
+            border: 2px solid var(--border); 
+            border-radius: 10px; 
+            font-size: 16px; 
+            text-align: center; 
+            font-weight: bold;
+            color: var(--primary);
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        button { 
+            background-color: var(--primary); 
+            color: white; 
+            border: none; 
+            padding: 14px 20px; 
+            border-radius: 10px; 
+            font-size: 16px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            width: 100%; 
+            box-sizing: border-box;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px -1px rgba(14, 116, 144, 0.2);
+        }
+
+        button:hover { 
+            background-color: var(--primary-hover); 
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        #status { 
+            margin-top: 20px; 
+            font-weight: bold; 
+            font-size: 14px; 
+            padding: 10px;
+            border-radius: 8px;
+            background-color: #f1f5f9;
+            color: var(--text-muted);
+            display: inline-block;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* تحسين مظهر منطقة الكاميرا الدائرية الاحترافية */
+        .reader-wrapper {
+            margin-top: 25px;
+            border-radius: 12px; 
+            overflow: hidden; 
+            border: 2px solid var(--border);
+            position: relative;
+            background: #000;
+            display: none;
+        }
+
+        #reader { 
+            width: 100%;
+        }
+
+        /* فلاش تنبيه عند نجاح القراءة */
+        .flash-success {
+            animation: flash 0.3s ease-out;
+        }
+        @keyframes flash {
+            0% { opacity: 0.5; background-color: var(--success); }
+            100% { opacity: 1; background-color: transparent; }
+        }
+
+        .select-camera {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            font-size: 14px;
+            display: none;
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>🎯 ماسح الباركود الطبي</h2>
-    <p style="font-size: 14px; color: #64748b;">أدخل IP جهاز الكمبيوتر لبدء الربط المباشر</p>
+<div class="container" id="mainContainer">
+    <h2>📱 ماسح الباركود اللاسلكي</h2>
+    <p class="subtitle">قم بربط كاميرا الموبايل فورياً لتمرير باركود الأدوية إلى شاشة الفواتير بالكمبيوتر بدون أسلاك.</p>
     
-    <input type="text" id="ipInput" placeholder="مثال: 192.168.1.5" value="192.168.1.5">
-    <button onclick="connectToPC()">🔄 ربط بالكمبيوتر وتشغيل الكاميرا</button>
+    <div class="input-group">
+        <label for="ipInput">عنوان الـ IP المعروض في برنامج الكمبيوتر:</label>
+        <input type="text" id="ipInput" placeholder="مثال: 192.168.1.5" value="192.168.1.5">
+    </div>
+
+    <button id="btnConnect" onclick="connectToPC()">🔄 ربط بالكمبيوتر وتشغيل الكاميرا</button>
     
-    <div id="status" style="color: #64748b;">🔴 غير متصل بالكمبيوتر</div>
-    <div id="reader" style="display: none;"></div>
+    <div id="status">🔴 غير متصل بالكمبيوتر حالياً</div>
+    
+    <!-- قائمة اختيار الكاميرا في حال وجود أكثر من كاميرا بالهاتف -->
+    <select id="cameraSelect" class="select-camera" onchange="switchCamera(this.value)"></select>
+
+    <div class="reader-wrapper" id="readerWrapper">
+        <div id="reader"></div>
+    </div>
 </div>
 
 <script>
     let webSocket;
-    let html5QrcodeScanner;
+    let html5Qrcode;
+    let currentCameraId;
 
     function connectToPC() {
         const ip = document.getElementById('ipInput').value.trim();
         if (!ip) { alert('الرجاء إدخال الـ IP أولاً'); return; }
 
         const statusDiv = document.getElementById('status');
-        statusDiv.innerText = "⏳ جاري الاتصال...";
-        statusDiv.style.color = "#d97706";
+        const btnConnect = document.getElementById('btnConnect');
+        
+        statusDiv.innerText = "⏳ جاري الاتصال بالكمبيوتر...";
+        statusDiv.style.color = "var(--warning)";
+        statusDiv.style.backgroundColor = "#fffbeb";
+        btnConnect.disabled = true;
 
-        // الاتصال بسيرفر الـ C# على الكمبيوتر عبر البورت 8080
-        webSocket = new WebSocket(`ws://${ip}:8080/barcode`);
+        // حل مشكلة المسار: السيرفر في C# يستمع مباشرة على الرابط بدون مسارات فرعية زائدة
+        webSocket = new WebSocket(`ws://${ip}:8080`);
 
         webSocket.onopen = function() {
-            statusDiv.innerText = "🟢 تم الاتصال بالكمبيوتر بنجاح!";
-            statusDiv.style.color = "#16a34a";
-            startCamera(); // تشغيل الكاميرا تلقائياً بعد نجاح الاتصال
+            statusDiv.innerText = "🟢 تم الاتصال! الكاميرا جاهزة للمسح";
+            statusDiv.style.color = "var(--success)";
+            statusDiv.style.backgroundColor = "#f0fdf4";
+            btnConnect.style.display = "none"; // إخفاء زر الاتصال بعد النجاح لتوفير مساحة
+            
+            startCamera(); // تشغيل الكاميرا السلس
         };
 
         webSocket.onerror = function() {
-            statusDiv.innerText = "❌ فشل الاتصال. تأكد أن البرنامج يعمل على الكمبيوتر وأنك على نفس الـ Wi-Fi";
-            statusDiv.style.color = "#dc2626";
+            statusDiv.innerText = "❌ فشل الاتصال! تأكد من تشغيل الخادم على الكمبيوتر وتطابق الشبكة.";
+            statusDiv.style.color = "var(--error)";
+            statusDiv.style.backgroundColor = "#fef2f2";
+            btnConnect.disabled = false;
         };
 
         webSocket.onclose = function() {
-            statusDiv.innerText = "🔴 انقطع الاتصال بالكمبيوتر";
-            statusDiv.style.color = "#dc2626";
+            statusDiv.innerText = "🔴 انقطع الاتصال بالكمبيوتر.";
+            statusDiv.style.color = "var(--error)";
+            statusDiv.style.backgroundColor = "#fef2f2";
+            btnConnect.disabled = false;
+            btnConnect.style.display = "block";
+            stopCamera();
         };
     }
 
     function startCamera() {
-        document.getElementById('reader').style.display = 'block';
+        document.getElementById('readerWrapper').style.display = 'block';
         
-        html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-            fps: 15, 
-            qrbox: { width: 250, height: 150 },
-            rememberLastUsedCamera: true
+        // استخدام المكون المباشر الـ Html5Qrcode لتفادي أزرار المكتبة الإنجليزية البشعة وجعل الواجهة عربية بالكامل
+        html5Qrcode = new Html5Qrcode("reader");
+        
+        Html5Qrcode.getCameras().then(devices => {
+            if (devices && devices.length > 0) {
+                // محاولة اختيار الكاميرا الخلفية تلقائياً للأجهزة الذكية (تسمى غالباً back أو تحتوي على عتاد التركيز)
+                let backCamera = devices.find(device => device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('environment'));
+                currentCameraId = backCamera ? backCamera.id : devices[0].id;
+
+                // إذا كان هناك أكثر من كاميرا، اعرض قائمة الاختيار للمستخدم للمرونة
+                if(devices.length > 1) {
+                    const select = document.getElementById('cameraSelect');
+                    select.innerHTML = "";
+                    devices.forEach(device => {
+                        const opt = document.createElement('option');
+                        opt.value = device.id;
+                        opt.innerText = device.label.includes('back') ? "📷 الكاميرا الخلفية الأساسية" : device.label;
+                        if(device.id === currentCameraId) opt.selected = true;
+                        select.appendChild(opt);
+                    });
+                    select.style.display = "block";
+                }
+
+                launchCameraStream(currentCameraId);
+            } else {
+                alert("❌ لم يتم العثور على كاميرات في هذا الجهاز.");
+            }
+        }).catch(err => {
+            alert("❌ خطأ في صلاحيات الوصول للكاميرا: " + err);
         });
-        
-        html5QrcodeScanner.render(onScanSuccess);
+    }
+
+    function launchCameraStream(cameraId) {
+        html5Qrcode.start(
+            cameraId, 
+            {
+                fps: 20, // زيادة عدد الإطارات لسرعة استجابة مذهلة أثناء الحركة
+                qrbox: function(width, height) {
+                    // مربع قراءة مستطيل مثالي ومناسب جداً لشريط باركود علب الأدوية الطويلة
+                    return { width: Math.min(width * 0.8, 300), height: 120 };
+                }
+            },
+            onScanSuccess
+        ).catch(err => {
+            console.error("فشل تشغيل تدفق الكاميرا: ", err);
+        });
+    }
+
+    function switchCamera(newCameraId) {
+        if (html5Qrcode && html5Qrcode.isScanning) {
+            html5Qrcode.stop().then(() => {
+                launchCameraStream(newCameraId);
+            });
+        }
     }
 
     function onScanSuccess(decodedText, decodedResult) {
-        // إرسال الكود المقروء فوراً عبر الـ WebSocket للكمبيوتر
         if (webSocket && webSocket.readyState === WebSocket.OPEN) {
-            webSocket.send(decodedText);
+            webSocket.send(decodedText); // ضخ كود الدواء فوراً للـ C#
             
-            // تنبيه اهتزاز بسيط للمستخدم لتأكيد القراءة بنجاح
-            if (navigator.vibrate) navigator.vibrate(100);
+            // إضافة تأثير فلاش مرئي خفيف على الحاوية للتأكيد البصري اللحظي
+            const container = document.getElementById('mainContainer');
+            container.classList.add('flash-success');
+            setTimeout(() => container.classList.remove('flash-success'), 300);
+
+            // اهتزاز الموبايل لتنبيه الطبيب/الصيدلي بنجاح المسح
+            if (navigator.vibrate) navigator.vibrate(80);
         } else {
-            alert("عذراً، انقطع الاتصال بالكمبيوتر أثناء القراءة!");
+            alert("⚠️ تنبيه: انقطع الاتصال بالكمبيوتر، يرجى إعادة الربط.");
+        }
+    }
+
+    function stopCamera() {
+        if (html5Qrcode && html5Qrcode.isScanning) {
+            html5Qrcode.stop().then(() => {
+                document.getElementById('readerWrapper').style.display = 'none';
+                document.getElementById('cameraSelect').style.display = 'none';
+            });
         }
     }
 </script>
