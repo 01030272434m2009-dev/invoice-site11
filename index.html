@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>📱 نظام ماسح الباركود اللاسلكي المطور</title>
+    
+    <!-- ربط ملف الـ Manifest لتحويله لتطبيق -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0e7490">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://img.icons8.com/fluent/192/000000/barcode-scanner.png">
+
     <!-- استدعاء مكتبة قارئ الباركود -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -281,10 +289,19 @@
 </div>
 
 <script>
+    // --- تسجيل الـ Service Worker الخاص بالـ PWA ليعمل كتطبيق موبايل ---
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('تم تسجيل محرك التطبيق بنجاح!', reg))
+                .catch(err => console.log('فشل تسجيل محرك التطبيق:', err));
+        });
+    }
+
     let webSocket;
     let html5Qrcode;
     let currentCameraId;
-    let isCooldown = false; // متغير لمنع القراءة المتكررة السريعة
+    let isCooldown = false; 
     let isFlashOn = false;
 
     function connectToPC() {
@@ -306,11 +323,9 @@
             statusDiv.style.color = "var(--success)";
             statusDiv.style.backgroundColor = "#f0fdf4";
             
-            // إخفاء حقول الإدخال الأولية لتوفير مساحة للكاميرا
             document.getElementById('ipGroup').style.display = "none";
             btnConnect.style.display = "none"; 
             
-            // إظهار لوحة التحكم اليدوي وشاشة المراقبة
             document.getElementById('manualInputGroup').style.display = "block";
             document.getElementById('monitorCard').style.display = "block";
             
@@ -373,12 +388,11 @@
             {
                 fps: 25, 
                 qrbox: function(width, height) {
-                    return { width: Math.min(width * 0.85, 320), height: 130 }; // مستطيل ممتاز لباركود الأدوية
+                    return { width: Math.min(width * 0.85, 320), height: 130 }; 
                 }
             },
             onScanSuccess
         ).then(() => {
-            // التحقق مما إذا كانت الكاميرا تدعم الفلاش (Torch) لإظهار الزر
             const extensions = html5Qrcode.getCameraCapabilities();
             if (extensions.torch) {
                 document.getElementById('btnFlash').style.display = "block";
@@ -400,6 +414,7 @@
         }
     }
 
+    // دالة التحكم بالكشاف (Flashlight)
     function toggleFlash() {
         if (html5Qrcode && html5Qrcode.isScanning) {
             isFlashOn = !isFlashOn;
@@ -423,30 +438,24 @@
     }
 
     function onScanSuccess(decodedText, decodedResult) {
-        // إذا كان النظام في فترة مهلة الانتظار، تجاهل المسحة تماماً لتجنب التكرار
         if (isCooldown) return;
 
         if (webSocket && webSocket.readyState === WebSocket.OPEN) {
-            isCooldown = true; // تفعيل المهلة فوراً
+            isCooldown = true; 
             
-            // إرسال الكود للكمبيوتر
             webSocket.send(decodedText); 
-            
-            // تحديث لوحة المراقبة لتبين الطبيب آخر كود تم إرساله
             document.getElementById('lastSentBarcode').innerText = decodedText;
 
-            // تأثير الفلاش المرئي والاهتزاز للموبايل
             const container = document.getElementById('mainContainer');
             container.classList.add('flash-success');
             setTimeout(() => container.classList.remove('flash-success'), 300);
             if (navigator.vibrate) navigator.vibrate(90);
 
-            // تشغيل الأنيميشن الخاص بشريط تحميل وقت الانتظار (ثانيتين مهلة لمنع التكرار)
             const bar = document.getElementById('cooldownBar');
             bar.style.width = "100%";
 
             setTimeout(() => {
-                isCooldown = false; // فك الحظر والسماح بالمسح مجدداً بعد ثانيتين
+                isCooldown = false; 
                 bar.style.transition = "none";
                 bar.style.width = "0%";
                 setTimeout(() => bar.style.transition = "width 2s linear", 50);
@@ -457,7 +466,6 @@
         }
     }
 
-    // دالة إرسال الباركود يدوياً من الخانة اليدوية
     function sendManualCode() {
         const inputField = document.getElementById('manualBarcode');
         const code = inputField.value.trim();
@@ -468,11 +476,9 @@
             webSocket.send(code);
             document.getElementById('lastSentBarcode').innerText = code;
             
-            // تفريغ الحقل لإعداده للمسحة التالية باليد
             inputField.value = "";
             inputField.focus();
 
-            // فلاش واهتزاز خفيف تأكيداً على النجاح اليدوي
             if (navigator.vibrate) navigator.vibrate(50);
         } else {
             alert("⚠️ تنبيه: انقطع الاتصال بالكمبيوتر!");
@@ -490,7 +496,6 @@
         }
     }
 
-    // السماح بالضغط على زر Enter داخل حقل الإرسال اليدوي للإرسال الفوري
     document.getElementById('manualBarcode').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             sendManualCode();
