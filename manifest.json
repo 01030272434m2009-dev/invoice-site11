@@ -4,7 +4,7 @@
   "description": "نظام ماسح الباركود اللاسلكي المطور لصيدلية ومستودع مدينة فاقوس",
   "start_url": "index.html",
   "display": "standalone",
-  "background_color": "#f1f5f9",
+  "background_color": "#f1f5f9", 
   "theme_color": "#0e7490",
   "orientation": "portrait",
   "icons": [
