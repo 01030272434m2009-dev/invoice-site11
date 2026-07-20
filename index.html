@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>📱 نظام ماسح الباركود اللاسلكي المطور</title>
     
-    <!-- ربط ملف الـ Manifest لتحويله لتطبيق -->
+    <!-- ربط ملف الـ Manifest لتحويله لتطبيق PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0e7490">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -224,13 +224,11 @@
         /* مؤشر شريط وقت الانتظار لمنع التكرار */
         .cooldown-bar {
             height: 5px;
-            width: 100%;
             background-color: var(--success);
             position: absolute;
             bottom: 0;
             right: 0;
             width: 0%;
-            transition: width 2s linear;
             z-index: 10;
         }
 
@@ -248,7 +246,7 @@
 
 <div class="container" id="mainContainer">
     <h2>📱 ماسح الباركود اللاسلكي المطور</h2>
-    <p class="subtitle">صيدلية ومستودع مدينة فاقوس - ربط مباشر لحقن الأكواد مكان الماوس تلقائياً.</p>
+    <p class="subtitle">ربط مباشر لحقن الأكواد مكان الماوس تلقائياً في النظام المكتبي.</p>
     
     <!-- حقل الـ IP والتوصيل -->
     <div class="input-group" id="ipGroup">
@@ -266,11 +264,11 @@
         <div class="monitor-value" id="lastSentBarcode">------</div>
     </div>
 
-    <!-- حقل الإرسال اليدوي للأكواد التالفة (يظهر بعد الاتصال) -->
+    <!-- حقل الإرسال اليدوي للأكواد التالفة -->
     <div class="input-group" id="manualInputGroup" style="margin-top: 20px; display: none;">
-        <label for="manualBarcode">⌨ إرسال كود يدوي باليد (في حال تلف الباركود):</label>
+        <label for="manualBarcode">⌨ إرسال كود يدوي (في حال تلف الباركود):</label>
         <div class="input-row">
-            <input type="digits" id="manualBarcode" placeholder="اكتب رقم الباركود هنا...">
+            <input type="number" id="manualBarcode" placeholder="اكتب رقم الباركود هنا..." pattern="[0-9]*" inputmode="numeric">
             <button id="btnSendManual" class="btn-secondary" style="width: auto; white-space: nowrap;" onclick="sendManualCode()">🚀 إرسال</button>
         </div>
     </div>
@@ -289,7 +287,7 @@
 </div>
 
 <script>
-    // --- تسجيل الـ Service Worker الخاص بالـ PWA ليعمل كتطبيق موبايل ---
+    // --- تسجيل الـ Service Worker للـ PWA ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js')
@@ -298,15 +296,15 @@
         });
     }
 
-    let webSocket;
-    let html5Qrcode;
-    let currentCameraId;
+    let webSocket = null;
+    let html5Qrcode = null;
+    let currentCameraId = null;
     let isCooldown = false; 
     let isFlashOn = false;
 
     function connectToPC() {
         const ip = document.getElementById('ipInput').value.trim();
-        if (!ip) { alert('الرجاء إدخال الـ IP أولاً'); return; }
+        if (!ip) { alert('الرجاء إدخال عنوان الـ IP أولاً'); return; }
 
         const statusDiv = document.getElementById('status');
         const btnConnect = document.getElementById('btnConnect');
@@ -316,58 +314,74 @@
         statusDiv.style.backgroundColor = "#fffbeb";
         btnConnect.disabled = true;
 
-        webSocket = new WebSocket(`ws://${ip}:8080`);
+        try {
+            webSocket = new WebSocket(`ws://${ip}:8080`);
 
-        webSocket.onopen = function() {
-            statusDiv.innerText = "🟢 متصل بالكمبيوتر وجاهز للعمل!";
-            statusDiv.style.color = "var(--success)";
-            statusDiv.style.backgroundColor = "#f0fdf4";
-            
-            document.getElementById('ipGroup').style.display = "none";
-            btnConnect.style.display = "none"; 
-            
-            document.getElementById('manualInputGroup').style.display = "block";
-            document.getElementById('monitorCard').style.display = "block";
-            
-            startCamera(); 
-        };
+            webSocket.onopen = function() {
+                statusDiv.innerText = "🟢 متصل بالكمبيوتر وجاهز للعمل!";
+                statusDiv.style.color = "var(--success)";
+                statusDiv.style.backgroundColor = "#f0fdf4";
+                
+                document.getElementById('ipGroup').style.display = "none";
+                btnConnect.style.display = "none"; 
+                
+                document.getElementById('manualInputGroup').style.display = "block";
+                document.getElementById('monitorCard').style.display = "block";
+                
+                startCamera(); 
+            };
 
-        webSocket.onerror = function() {
-            statusDiv.innerText = "❌ فشل الاتصال! تأكد من تشغيل الخادم بالكمبيوتر وتطابق الشبكة.";
-            statusDiv.style.color = "var(--error)";
-            statusDiv.style.backgroundColor = "#fef2f2";
-            btnConnect.disabled = false;
-        };
+            webSocket.onerror = function() {
+                handleDisconnect("❌ فشل الاتصال! تأكد من تشغيل الخادم بالكمبيوتر وتطابق شبكة Wi-Fi.");
+            };
 
-        webSocket.onclose = function() {
-            statusDiv.innerText = "🔴 انقطع الاتصال بالكمبيوتر.";
-            statusDiv.style.color = "var(--error)";
-            statusDiv.style.backgroundColor = "#fef2f2";
-            btnConnect.disabled = false;
-            btnConnect.style.display = "block";
-            document.getElementById('ipGroup').style.display = "block";
-            document.getElementById('manualInputGroup').style.display = "none";
-            stopCamera();
-        };
+            webSocket.onclose = function() {
+                handleDisconnect("🔴 انقطع الاتصال بالكمبيوتر.");
+            };
+        } catch (e) {
+            handleDisconnect("❌ خطأ في الاتصال: " + e.message);
+        }
+    }
+
+    function handleDisconnect(message) {
+        const statusDiv = document.getElementById('status');
+        const btnConnect = document.getElementById('btnConnect');
+
+        statusDiv.innerText = message;
+        statusDiv.style.color = "var(--error)";
+        statusDiv.style.backgroundColor = "#fef2f2";
+        btnConnect.disabled = false;
+        btnConnect.style.display = "block";
+        document.getElementById('ipGroup').style.display = "block";
+        document.getElementById('manualInputGroup').style.display = "none";
+        
+        stopCamera();
     }
 
     function startCamera() {
         document.getElementById('readerWrapper').style.display = 'block';
-        html5Qrcode = new Html5Qrcode("reader");
+        if (!html5Qrcode) {
+            html5Qrcode = new Html5Qrcode("reader");
+        }
         
         Html5Qrcode.getCameras().then(devices => {
             if (devices && devices.length > 0) {
-                let backCamera = devices.find(device => device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('environment'));
-                currentCameraId = backCamera ? backCamera.id : devices[0].id;
+                // البحث عن الكاميرا الخلفية الأساسية
+                let backCamera = devices.find(device => {
+                    const label = device.label.toLowerCase();
+                    return label.includes('back') || label.includes('rear') || label.includes('environment');
+                });
 
-                if(devices.length > 1) {
+                currentCameraId = backCamera ? backCamera.id : devices[devices.length - 1].id;
+
+                if (devices.length > 1) {
                     const select = document.getElementById('cameraSelect');
                     select.innerHTML = "";
-                    devices.forEach(device => {
+                    devices.forEach((device, index) => {
                         const opt = document.createElement('option');
                         opt.value = device.id;
-                        opt.innerText = device.label.includes('back') ? "📷 الكاميرا الخلفية الأساسية" : device.label;
-                        if(device.id === currentCameraId) opt.selected = true;
+                        opt.innerText = device.label ? device.label : `كاميرا ${index + 1}`;
+                        if (device.id === currentCameraId) opt.selected = true;
                         select.appendChild(opt);
                     });
                     select.style.display = "block";
@@ -375,33 +389,44 @@
 
                 launchCameraStream(currentCameraId);
             } else {
-                alert("❌ لم يتم العثور على كاميرات.");
+                alert("❌ لم يتم العثور على كاميرات ملحقة.");
             }
         }).catch(err => {
-            alert("❌ خطأ في صلاحيات الكاميرا: " + err);
+            alert("❌ خطأ في الوصول للكاميرا: " + err);
         });
     }
 
     function launchCameraStream(cameraId) {
-        html5Qrcode.start(
-            cameraId, 
-            {
-                fps: 25, 
-                qrbox: function(width, height) {
-                    return { width: Math.min(width * 0.85, 320), height: 130 }; 
-                }
+        const config = {
+            fps: 30,
+            qrbox: (viewfinderWidth, viewfinderHeight) => {
+                return { 
+                    width: Math.min(viewfinderWidth * 0.85, 320), 
+                    height: 140 
+                };
             },
-            onScanSuccess
-        ).then(() => {
-            const extensions = html5Qrcode.getCameraCapabilities();
-            if (extensions.torch) {
-                document.getElementById('btnFlash').style.display = "block";
-                isFlashOn = false;
-                document.getElementById('btnFlash').innerText = "🔦 تشغيل الكشاف";
+            experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true
             }
-        }).catch(err => {
-            console.error("فشل تشغيل الكاميرا: ", err);
-        });
+        };
+
+        html5Qrcode.start(cameraId, config, onScanSuccess)
+            .then(() => {
+                try {
+                    const capabilities = html5Qrcode.getCameraCapabilities();
+                    if (capabilities.torch) {
+                        const flashBtn = document.getElementById('btnFlash');
+                        flashBtn.style.display = "block";
+                        isFlashOn = false;
+                        flashBtn.innerText = "🔦 تشغيل الكشاف";
+                    }
+                } catch (e) {
+                    console.log("الفلاش غير مدعوم بالجهاز");
+                }
+            })
+            .catch(err => {
+                console.error("فشل بدء بث الكاميرا: ", err);
+            });
     }
 
     function switchCamera(newCameraId) {
@@ -410,11 +435,10 @@
                 isFlashOn = false;
                 document.getElementById('btnFlash').style.display = "none";
                 launchCameraStream(newCameraId);
-            });
+            }).catch(err => console.error(err));
         }
     }
 
-    // دالة التحكم بالكشاف (Flashlight)
     function toggleFlash() {
         if (html5Qrcode && html5Qrcode.isScanning) {
             isFlashOn = !isFlashOn;
@@ -422,7 +446,7 @@
                 advanced: [{ torch: isFlashOn }]
             }).then(() => {
                 const btn = document.getElementById('btnFlash');
-                if(isFlashOn) {
+                if (isFlashOn) {
                     btn.innerText = "❌ إطفاء الكشاف";
                     btn.style.backgroundColor = "var(--warning)";
                     btn.style.color = "#fff";
@@ -432,37 +456,43 @@
                     btn.style.color = "#334155";
                 }
             }).catch(err => {
-                alert("الفلاش غير مدعوم في وضعية هذه الكاميرا حالياً.");
+                alert("تعذر التحكم بالكشاف في هذا الوضع.");
             });
         }
     }
 
-    function onScanSuccess(decodedText, decodedResult) {
+    function onScanSuccess(decodedText) {
         if (isCooldown) return;
 
         if (webSocket && webSocket.readyState === WebSocket.OPEN) {
             isCooldown = true; 
             
+            // إرسال الكود عبر الشبكة
             webSocket.send(decodedText); 
             document.getElementById('lastSentBarcode').innerText = decodedText;
 
+            // تأثير بصري وصوتي عند مسح الكود
             const container = document.getElementById('mainContainer');
             container.classList.add('flash-success');
             setTimeout(() => container.classList.remove('flash-success'), 300);
-            if (navigator.vibrate) navigator.vibrate(90);
+            if (navigator.vibrate) navigator.vibrate(80);
 
+            // تشغيل شريط Cooldown 
             const bar = document.getElementById('cooldownBar');
+            bar.style.transition = "none";
             bar.style.width = "100%";
 
             setTimeout(() => {
-                isCooldown = false; 
-                bar.style.transition = "none";
+                bar.style.transition = "width 1.8s linear";
                 bar.style.width = "0%";
-                setTimeout(() => bar.style.transition = "width 2s linear", 50);
-            }, 2000); 
+            }, 50);
+
+            setTimeout(() => {
+                isCooldown = false; 
+            }, 1850); 
 
         } else {
-            alert("⚠️ تنبيه: انقطع الاتصال بالكمبيوتر!");
+            alert("⚠️ انقطع الاتصال بالكمبيوتر!");
         }
     }
 
@@ -481,7 +511,7 @@
 
             if (navigator.vibrate) navigator.vibrate(50);
         } else {
-            alert("⚠️ تنبيه: انقطع الاتصال بالكمبيوتر!");
+            alert("⚠️ انقطع الاتصال بالكمبيوتر!");
         }
     }
 
@@ -492,7 +522,7 @@
                 document.getElementById('cameraSelect').style.display = 'none';
                 document.getElementById('btnFlash').style.display = "none";
                 document.getElementById('monitorCard').style.display = "none";
-            });
+            }).catch(err => console.log(err));
         }
     }
 
