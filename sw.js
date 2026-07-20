@@ -1,11 +1,10 @@
-const CACHE_NAME = 'faqous-scanner-v1';
+const CACHE_NAME = 'faqous-scanner-v2';
 const ASSETS = [
-  'index.html',
-  'manifest.json',
-  'https://unpkg.com/html5-qrcode'
+  './',
+  './index.html',
+  './manifest.json'
 ];
 
-// تثبيت الـ Service Worker وحفظ الملفات في الكاش
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -14,7 +13,6 @@ self.addEventListener('install', (e) => {
   );
 });
 
-// تفعيل وتحسين إدارة الكاش القديم
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
@@ -29,11 +27,18 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// استدعاء الملفات من الكاش مباشرة لتسريع التشغيل وللعمل Offline
 self.addEventListener('fetch', (e) => {
+  // عدم تخزين طلبات ה-WebSocket
+  if (e.request.url.startsWith('ws://') || e.request.url.startsWith('wss://')) {
+    return;
+  }
+
   e.respondWith(
     caches.match(e.request).then((cachedResponse) => {
-      return cachedResponse || fetch(e.request);
+      return cachedResponse || fetch(e.request).catch(() => {
+        // في حال عدم وجود شبكة
+        return caches.match('./index.html');
+      });
     })
   );
 });
